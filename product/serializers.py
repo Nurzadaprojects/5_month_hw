@@ -1,13 +1,26 @@
 from rest_framework import serializers
-from .models import Product
-from .models import Review
+from .models import Product, Manager, Review
 
-class ProductSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Product
-        fields = '__all__'
+
 
 class ReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = Review
-        fields = '__all__'
+        fields = 'id text stars'.split()
+
+
+class ManagerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Manager
+        fields = 'id name age birth_year'.split()
+
+class ProductSerializer(serializers.ModelSerializer):
+    manager = ManagerSerializer()
+    reviews = ReviewSerializer(many=True)
+    class Meta:
+        model = Product
+        fields = 'id title manager color reviews'.split()
+        # depth = 1
+
+
+
