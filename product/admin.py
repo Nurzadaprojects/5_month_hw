@@ -1,6 +1,6 @@
 from django.contrib import admin
-from .models import Product, Manager, Color
-from .models import Review
+from product.models import Product, Manager, Color
+from product.models import Review
 # Register your models here.
 
 admin.site.register(Product)
