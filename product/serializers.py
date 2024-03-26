@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from product.models import Product, Manager, Review
+from .models import Product, Manager, Review
+from rest_framework.exceptions import ValidationError
 
 
 
@@ -22,5 +23,26 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = 'id title manager color reviews'.split()
         # depth = 1
 
+class ProductValidateSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=100, min_length=3)
+    description = serializers.CharField(required=False)
+    price = serializers.IntegerField(required=True)
+    category = serializers.FloatField(required=True)
+    manager_id = serializers.IntegerField()
+
+    def validate_manager_id(self, manager_id):
+        try:
+            Manager.objects.get(id=manager_id)
+        except Manager.DoesNotExist:
+            raise ValidationError("Manager does not found!")
+        return manager_id
+
+
+
+
+
+class ReviewValidateSerializer(serializers.Serializer):
+    text = serializers.CharField(max_length=100)
+    stars = serializers.IntegerField()
 
 

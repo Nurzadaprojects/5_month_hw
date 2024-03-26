@@ -1,9 +1,11 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from product.serializers import ProductSerializer, ReviewSerializer
+from product.serializers import ProductSerializer, ReviewSerializer, ProductValidateSerializer
 from product.models import Product, Review
 from rest_framework import status
 from django.db.models import Avg, Count
+from .serializers import ManagerSerializer
+
 
 
 
@@ -32,29 +34,22 @@ def category_detail_api_view(request, id):
 
 
 
+
+
 @api_view(['GET', 'POST'])
 def product_api_view(request):
     if request.method == 'GET':
         product_list = Product.objects.select_related('manager').prefetch_related('reviews', 'color').all()
-        data = ProductSerializer(product_list, many=True).data
+
+        data = ProductSerializer(instance=product_list, many=True).data
+
         return Response(data=data)
     elif request.method == 'POST':
-        title = request.data.get('title')
-        description = request.data.get('description')
-        price = request.data.get('price')
-        category = request.data.get('category')
-        manager_id = request.data.get('manager_id')
-        color = request.data.get('color')
+        serializer = ProductValidateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(status=status.HTTP_400_BAD_REQUEST,
+                            data={'errors': serializer.errors})
 
-
-        product = Product.objects.create(title=title, description=description,
-                                         price=price, category=category,
-                                         manager_id=manager_id)
-
-        product.color.set(color)
-        product.save()
-
-        return Response(status=status.HTTP_201_CREATED, data={'product_id': product.id })
 
 @api_view(['GET', 'PUT', 'DELETE'])
 def product_detail_api_view(request, id):
@@ -67,7 +62,7 @@ def product_detail_api_view(request, id):
 
     if request.method == 'GET':
 
-        data = ProductSerializer(product_detail).data
+        data = ProductSerializer(product_detail, many=False).data
 
         return Response(data=data)
     elif request.method == 'PUT':
@@ -95,8 +90,8 @@ def review_api_view(request):
         reviews = Review.objects.select_related('product').all()
         serializer = ReviewSerializer(reviews, many=True)
 
-        return Response(serializer.data)
 
+        return Response(serializer.data)
     elif request.method == 'POST':
         text = request.data.get('text')
         stars = request.data.get('stars')
@@ -109,9 +104,6 @@ def review_api_view(request):
 
 
 
-
-
-
 @api_view(['GET'])
 def review_detail_api_view(request, id):
     try:
@@ -120,8 +112,25 @@ def review_detail_api_view(request, id):
     except Review.DoesNotExist:
         return Response(data={'error_message': 'Review not found'},
                         status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+
+        data = ReviewSerializer(review_detail, many=False).data
+
+        return Response(data=data)
+    elif request.method == 'POST':
+        review_detail.text = request.data.get('text')
+        review_detail.stars = request.data.get('stars')
+        review_detail.save()
+        return Response(status=status.HTTP_201_CREATED, data={'review_id': review_detail.id})
+
+    else:
+        review_detail.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     data = ReviewSerializer(review_detail, many=False).data
     return Response(data=data)
+
 
 @api_view(['GET'])
 def products_with_reviews(request):
@@ -146,3 +155,23 @@ def categories_with_product_counts(request):
     categories = Product.objects.values('category').annotate(products_count=Count('id'))
     categories_data = [{'category': category['category'], 'products_count': category['products_count']} for category in categories]
     return Response(categories_data)
+
+
+
+@api_view(['POST'])
+def create_product(request):
+    tags_data = request.data.get('tags', [])
+    tags_objects = []
+
+    for tag_name in tags_data:
+        tag, created = Tag.objects.get_or_create(name=tag_name)
+        tags_objects.append(tag)
+
+    serializer = ProductSerializer(data=request.data)
+    if serializer.is_valid():
+        product = serializer.save()
+        product.tags.set(tags_objects)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    else:
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
