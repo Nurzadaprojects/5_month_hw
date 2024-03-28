@@ -38,6 +38,7 @@ def category_detail_api_view(request, id):
 
 @api_view(['GET', 'POST'])
 def product_api_view(request):
+    print(request.user)
     if request.method == 'GET':
         product_list = Product.objects.select_related('manager').prefetch_related('reviews', 'color').all()
 
